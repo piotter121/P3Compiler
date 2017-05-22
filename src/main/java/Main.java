@@ -5,12 +5,18 @@ import org.antlr.v4.runtime.TokenSource;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+
 /**
  * Created by piotr on 08.05.17.
  */
 public class Main {
-    public static void main(String[] args) throws Exception {
-        CharStream input = CharStreams.fromStream(Main.class.getResourceAsStream(args[0]));
+    public static void main(String... args) throws Exception {
+        File inputFile = new File(args[0]);
+        InputStream inputFileStream = new FileInputStream(inputFile.getAbsolutePath());
+        CharStream input = CharStreams.fromStream(inputFileStream);
 
         TokenSource lexer = new P3langLexer(input);
 

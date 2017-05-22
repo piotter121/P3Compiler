@@ -1,3 +1,4 @@
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
@@ -11,7 +12,7 @@ public class LLVMActions extends P3langBaseListener {
     private String value;
     private final String outputFileName;
 
-    public LLVMActions(String outputFileName) {
+    LLVMActions(String outputFileName) {
         this.outputFileName = outputFileName;
     }
 
@@ -25,7 +26,8 @@ public class LLVMActions extends P3langBaseListener {
     @Override
     public void exitProgram(P3langParser.ProgramContext ctx) {
         String generatedProgram = LLVMGenerator.generate();
-        try (FileWriter writer = new FileWriter(outputFileName)) {
+        String userDir = System.getProperty("user.dir");
+        try (FileWriter writer = new FileWriter(userDir + File.separator + outputFileName)) {
             writer.write(generatedProgram);
             writer.flush();
         } catch (IOException e) {

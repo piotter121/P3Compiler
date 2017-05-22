@@ -1,7 +1,10 @@
 grammar P3lang;
 
 @parser::header {
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.HashMap;
 }
@@ -10,7 +13,9 @@ import java.util.HashMap;
 private void insertTokens(String fileName) {
     try {
         fileName = fileName.substring(1, fileName.length() - 1);
-        CharStream input = CharStreams.fromStream(getClass().getResourceAsStream(fileName));
+        File file = new File(fileName);
+        InputStream additionalFile = new FileInputStream(file.getAbsolutePath());
+        CharStream input = CharStreams.fromStream(additionalFile);
         CommonTokenStream thatStream = new CommonTokenStream(new P3langLexer(input));
         thatStream.fill();
         List extraTokens = thatStream.getTokens();

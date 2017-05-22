@@ -1,7 +1,8 @@
-*.class
 *.jar
 *.ll
 *.s
 program
 .idea/
 target/
+*.iml
+*.swp
