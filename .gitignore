@@ -1,0 +1,7 @@
+*.class
+*.jar
+*.ll
+*.s
+program
+.idea/
+target/

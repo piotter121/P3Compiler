@@ -1,0 +1,5 @@
+print "ala ma kota"
+x = "alalala"
+print x
+insert "dolaczony.p3"
+print "koniec"
