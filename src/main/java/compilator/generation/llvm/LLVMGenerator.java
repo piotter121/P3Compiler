@@ -1,13 +1,15 @@
+package compilator.generation.llvm;
+
 /**
  * Created by piotr on 08.05.17.
  */
 public class LLVMGenerator {
 
-    private static String header_text = "";
-    private static String main_text = "";
-    private static int str_i = 0;
+    private String header_text = "";
+    private String main_text = "";
+    private int str_i = 0;
 
-    static void print(String text) {
+    public void print(String text) {
         int str_len = text.length();
         String str_type = "[" + (str_len + 2) + " x i8]";
         header_text += "@str" + str_i + " = constant" + str_type + " c\"" + text + "\\0A\\00\"\n";
@@ -16,7 +18,7 @@ public class LLVMGenerator {
         str_i++;
     }
 
-    static String generate() {
+    public String generate() {
         return "declare i32 @printf(i8*, ...)\n" +
                 header_text +
                 "define i32 @main() nounwind{\n" +

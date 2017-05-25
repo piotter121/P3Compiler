@@ -1,9 +1,13 @@
+package compilator;
+
+import compilator.generation.llvm.LLVMActions;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.TokenSource;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
+import p3lang.*;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -19,7 +23,6 @@ public class Main {
         CharStream input = CharStreams.fromStream(inputFileStream);
 
         TokenSource lexer = new P3langLexer(input);
-
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         P3langParser parser = new P3langParser(tokens);
 

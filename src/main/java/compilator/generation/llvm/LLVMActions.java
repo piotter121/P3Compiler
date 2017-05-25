@@ -1,3 +1,7 @@
+package compilator.generation.llvm;
+
+import p3lang.*;
+
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -11,8 +15,9 @@ public class LLVMActions extends P3langBaseListener {
     private HashMap<String, String> memory = new HashMap<>();
     private String value;
     private final String outputFileName;
+    private final LLVMGenerator generator = new LLVMGenerator();
 
-    LLVMActions(String outputFileName) {
+    public LLVMActions(String outputFileName) {
         this.outputFileName = outputFileName;
     }
 
@@ -25,7 +30,7 @@ public class LLVMActions extends P3langBaseListener {
 
     @Override
     public void exitProgram(P3langParser.ProgramContext ctx) {
-        String generatedProgram = LLVMGenerator.generate();
+        String generatedProgram = generator.generate();
         String userDir = System.getProperty("user.dir");
         try (FileWriter writer = new FileWriter(userDir + File.separator + outputFileName)) {
             writer.write(generatedProgram);
@@ -48,7 +53,7 @@ public class LLVMActions extends P3langBaseListener {
 
     @Override
     public void exitPrintStatement(P3langParser.PrintStatementContext ctx) {
-        LLVMGenerator.print(value);
+        generator.print(value);
     }
 
 }

@@ -65,7 +65,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>Main</mainClass>
+                            <mainClass>compilator.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
