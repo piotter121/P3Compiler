@@ -1,2 +1,3 @@
-print "Jestem trescia z dolaczonego pliku"
+dolaczony = "Jestem trescia z dolaczonego pliku"
+print dolaczony
 

@@ -1,5 +1,3 @@
-print "ala ma kota"
-x = "alalala"
+x = "ala ma kota"
 print x
 insert "dolaczony.p3"
-print "koniec"
