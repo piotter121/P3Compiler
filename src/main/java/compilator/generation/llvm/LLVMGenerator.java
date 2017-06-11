@@ -1,150 +1,184 @@
 package compilator.generation.llvm;
 
-/**
- * Created by piotr on 08.05.17.
- */
+import java.util.Stack;
+
 class LLVMGenerator {
 
     int reg = 1;
-    private String header_text = "";
-    private String main_text = "";
+    private int globalReqBackup = 1;
+    private int ifNo = 0;
+    private String headerText = "";
+    private String globals = "";
+    private String mainText = "";
+    private String buffer = "";
+    private Stack<Integer> brstack = new Stack<>();
 
-    void printString(String id) {
-        main_text += "%" + reg + " = load i8** %" + id + "\n";
-        reg++;
-        main_text +=
-                "%" + reg + " = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @strps, i32 0, i32 0), i8* %" + (reg - 1) + ")\n";
-        reg++;
+    int icmp(ConditionalOperand operand, VarType type, String id1, String id2) {
+        buffer += "%" + reg + " = icmp " + operand + " " + type + " " + id1 + ", " + id2 + "\n";
+        return reg++;
     }
 
-    void printfI32(String id) {
-        main_text += "%" + reg + " = load i32* %" + id + "\n";
+    void printf(Scope prefix, String id, VarType type) {
+        buffer += "%" + reg + " = load " + type + "* " + prefix + id + "\n";
         reg++;
-        main_text +=
-                "%" + reg + " = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @strpi, i32 0, i32 0), i32 %" + (reg - 1) + ")\n";
-        reg++;
-    }
-
-    void printfDouble(String id) {
-        main_text += "%" + reg + " = load double* %" + id + "\n";
-        reg++;
-        main_text +=
-                "%" + reg + " = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* @strpd, i32 0, i32 0), double %" + (reg - 1) + ")\n";
+        buffer += "%" + reg + " = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* " + type.getPrintfFormat() + ", i32 0, i32 0), " + type + " %" + (reg - 1) + ")\n";
         reg++;
     }
 
-    void declareI32(String id) {
-        main_text += "%" + id + " = alloca i32\n";
+    void declare(Scope scope, String id, VarType type) {
+        if (scope == Scope.LOCAL)
+            buffer += scope + id + " = alloca " + type + "\n";
+        else if (scope == Scope.GLOBAL)
+            globals += scope + id + " = common global " + type + " " + type.getInitVal() + "\n";
     }
 
-    void declareDouble(String id) {
-        main_text += "%" + id + " = alloca double\n";
+    void assignI32(Scope scope, String id, String value) {
+        buffer += "store i32 " + value + ", i32* " + scope + id + "\n";
     }
 
-    void assignI32(String id, String value) {
-        main_text += "store i32 " + value + ", i32* %" + id + "\n";
+    void assignDouble(Scope scope, String id, String value) {
+        buffer += "store double " + value + ", double* " + scope + id + "\n";
     }
 
-    void assignDouble(String id, String value) {
-        main_text += "store double " + value + ", double* %" + id + "\n";
+    void assignString(Scope scope, String id, String value) {
+        headerText += "@str" + id + " = constant[" + (value.length() + 1) + " x i8] c\"" + value + "\\00\"\n";
+        buffer += "store i8* getelementptr inbounds ([" + (value.length() + 1) + " x i8]* @str" + id + ", i32 0, i32 0), i8** " + scope + id + "\n";
     }
 
-
-    void load_i32(String id) {
-        main_text += "%" + reg + " = load i32* %" + id + "\n";
-        reg++;
-    }
-
-    void load_double(String id) {
-        main_text += "%" + reg + " = load double* %" + id + "\n";
-        reg++;
+    int load(VarType type, Scope prefix, String id) {
+        buffer += "%" + reg + " = load " + type + "* " + prefix + id + "\n";
+        return reg++;
     }
 
     void addI32(String val1, String val2) {
-        main_text += "%" + reg + " = add i32 " + val1 + ", " + val2 + "\n";
+        buffer += "%" + reg + " = add i32 " + val1 + ", " + val2 + "\n";
         reg++;
     }
 
     void addDouble(String val1, String val2) {
-        main_text += "%" + reg + " = fadd double " + val1 + ", " + val2 + "\n";
+        buffer += "%" + reg + " = fadd double " + val1 + ", " + val2 + "\n";
         reg++;
     }
 
     void subI32(String val1, String val2) {
-        main_text += "%" + reg + " = sub i32 " + val2 + ", " + val1 + "\n";
+        buffer += "%" + reg + " = sub i32 " + val2 + ", " + val1 + "\n";
         reg++;
     }
 
     void subDouble(String val1, String val2) {
-        main_text += "%" + reg + " = fsub double " + val2 + ", " + val1 + "\n";
+        buffer += "%" + reg + " = fsub double " + val2 + ", " + val1 + "\n";
         reg++;
     }
 
     void multI32(String val1, String val2) {
-        main_text += "%" + reg + " = mul i32 " + val1 + ", " + val2 + "\n";
+        buffer += "%" + reg + " = mul i32 " + val1 + ", " + val2 + "\n";
         reg++;
     }
 
     void multDouble(String val1, String val2) {
-        main_text += "%" + reg + " = fmul double " + val1 + ", " + val2 + "\n";
+        buffer += "%" + reg + " = fmul double " + val1 + ", " + val2 + "\n";
         reg++;
     }
 
     void divI32(String val1, String val2) {
-        main_text += "%" + reg + " = sdiv i32 " + val2 + ", " + val1 + "\n";
+        buffer += "%" + reg + " = sdiv i32 " + val2 + ", " + val1 + "\n";
         reg++;
     }
 
     void divDouble(String val1, String val2) {
-        main_text += "%" + reg + " = fdiv double " + val2 + ", " + val1 + "\n";
+        buffer += "%" + reg + " = fdiv double " + val2 + ", " + val1 + "\n";
         reg++;
     }
 
     void sitofp(String id) {
-        main_text += "%" + reg + " = sitofp i32 " + id + " to double\n";
+        buffer += "%" + reg + " = sitofp i32 " + id + " to double\n";
         reg++;
     }
 
     void fptosi(String id) {
-        main_text += "%" + reg + " = fptosi double " + id + " to i32\n";
+        buffer += "%" + reg + " = fptosi double " + id + " to i32\n";
         reg++;
     }
 
 
     String generate() {
-        return "declare i32 @printf(i8*, ...)\n" +
-                "declare i32 @__isoc99_scanf(i8*, ...)\n" +
-                "@strpi = constant [4 x i8] c\"%d\\0A\\00\"\n" +
-                "@strpd = constant [4 x i8] c\"%f\\0A\\00\"\n" +
-                "@strps = constant [4 x i8] c\"%s\\0A\\00\"\n" +
-                "@strsi =  constant [3 x i8] c\"%d\\00\"\n" +
-                "@strsd = constant [4 x i8] c\"%lf\\00\"\n" +
-                header_text +
-                "define i32 @main() nounwind{\n" +
-                main_text +
-                "ret i32 0 \n}\n";
-    }
-
-    void declareString(String id) {
-        main_text += "%" + id + " = alloca i8*";
-    }
-
-    void assignString(String id, String value) {
-        header_text += "@str" + id + " = constant[" + (value.length() + 1) + " x i8] c\"" + value + "\\00\"\n";
-        main_text +=
-                "store i8* getelementptr inbounds ([" + (value.length() + 1) + " x i8]* @str" + id + ", i32 0, i32 0), i8** %" + id + "\n";
+        return "declare i32 @printf(i8*, ...)\n"
+                + "declare i32 @scanf(i8*, ...)\n"
+                + "@strpi = constant [4 x i8] c\"%d\\0A\\00\"\n"
+                + "@strpd = constant [4 x i8] c\"%f\\0A\\00\"\n"
+                + "@strps = constant [4 x i8] c\"%s\\0A\\00\"\n"
+                + "@strsi =  constant [3 x i8] c\"%d\\00\"\n"
+                + "@strsd = constant [4 x i8] c\"%lf\\00\"\n"
+                + "@strinit = constant [1 x i8] c\"\\00\"\n"
+                + headerText
+                + globals
+                + "define i32 @main() nounwind{\n"
+                + mainText
+                + "ret i32 0 \n" +
+                "}\n";
     }
 
     void scanfI32(String id) {
-        main_text +=
-                "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @strsi, i32 0, i32 0), i32* %" + id + ")\n";
+        buffer += "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @strsi, i32 0, i32 0), i32* %" + id + ")\n";
         reg++;
     }
 
     void scanfDouble(String id) {
-        main_text +=
-                "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([4 x i8]* @strsd, i32 0, i32 0), double* %" + id + ")\n";
+        buffer += "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([4 x i8]* @strsd, i32 0, i32 0), double* %" + id + ")\n";
         reg++;
+    }
+
+    void closeMain() {
+        mainText += buffer;
+    }
+
+    void beginIf(String cond) {
+        ifNo++;
+        buffer += "br i1 " + cond + ", label %ok" + ifNo + ", label %fail" + ifNo + "\n";
+        buffer += "ok" + ifNo + ": \n";
+        brstack.push(ifNo);
+    }
+
+    void endIf() {
+        int brNo = brstack.pop();
+        buffer += "br label %fail" + brNo + "\n";
+        buffer += "fail" + brNo + ":\n";
+    }
+
+    void loopHead() {
+        ifNo++;
+        brstack.push(ifNo);
+        buffer += "br label %loop" + ifNo + "Head\n";
+        buffer += "loop" + ifNo + "Head:\n";
+    }
+
+    void beginLoop(String cond) {
+        buffer += "br i1 " + cond + ", label %loop" + ifNo + "Body, label %loop" + ifNo + "End\n";
+        buffer += "loop" + ifNo + "Body:\n";
+    }
+
+    void endLoop() {
+        int brNo = brstack.pop();
+        buffer += "br label %loop" + brNo + "Head\n";
+        buffer += "loop" + brNo + "End:\n";
+    }
+
+    void startFunction(String id) {
+        mainText += buffer;
+        globalReqBackup = reg;
+        buffer = "define void @" + id + "() nounwind {\n";
+        reg = 1;
+    }
+
+    void endFunction() {
+        buffer += "ret void\n}\n";
+        headerText += buffer;
+        buffer = "";
+        reg = globalReqBackup;
+    }
+
+    void callFunction(String id) {
+        buffer += "call void @" + id + "()\n";
     }
 }
 

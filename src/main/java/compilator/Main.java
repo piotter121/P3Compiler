@@ -7,15 +7,13 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.TokenSource;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
-import p3lang.*;
+import p3lang.P3langLexer;
+import p3lang.P3langParser;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 
-/**
- * Created by piotr on 08.05.17.
- */
 public class Main {
     public static void main(String... args) throws Exception {
         File inputFile = new File(args[0]);
@@ -30,7 +28,11 @@ public class Main {
 
         ParseTreeWalker walker = new ParseTreeWalker();
         LLVMActions llvmGenerator = new LLVMActions(args[1]);
-        walker.walk(llvmGenerator, tree);
+        try {
+            walker.walk(llvmGenerator, tree);
+        } catch (RuntimeException e) {
+            System.err.println("Błąd! " + e.getLocalizedMessage());
+        }
     }
 }
 

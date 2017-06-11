@@ -1,0 +1,6 @@
+s = "Przed dolaczonym plikiem"
+print s
+# komentarz w pliku źródłowym
+insert "dolaczony.p3"
+d = "Po dolaczonym pliku"
+print d

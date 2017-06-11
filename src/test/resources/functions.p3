@@ -1,0 +1,12 @@
+x = 12
+
+def foo :
+    xx = x * x
+    print xx
+end
+
+call foo()
+
+#print xx
+
+print x

@@ -28,24 +28,42 @@ private void insertTokens(String fileName) {
 }
 }
 
-program: ( statement? NEWLINE )* EOF
-    ;
+program: ((statement|functionDefinition)? NEWLINE)*
+       ;
+
+block: (statement? NEWLINE)*
+     ;
 
 statement: PRINT ID #printStatement
          | READ ID #readStatement
          | ID '=' expr0 #assignStatement
          | INSERT STRING { insertTokens($STRING.text); } #insertCodeStatement
-   ;
+         | IF condition THEN ifBlock ENDIF #conditionalStatement
+         | WHILE condition THEN loopBlock END #loopStatement
+         | CALL ID '()' #functionCallStatement
+         ;
+
+functionDefinition: DEFINE ID ':' NEWLINE funblock END
+                  ;
+
+funblock: block
+        ;
+
+ifBlock: block
+       ;
+
+loopBlock: block
+         ;
 
 expr0:  expr1			#single0
-      | expr1 ADD expr1		#add
-      | expr1 SUB expr1 #subs
-    ;
+     | expr1 ADD expr1		#add
+     | expr1 SUB expr1 #subs
+     ;
 
 expr1:  expr2			#single1
-      | expr2 MULT expr2	#mult
-      | expr2 DIV expr2 #div
-    ;
+     | expr2 MULT expr2	#mult
+     | expr2 DIV expr2 #div
+     ;
 
 expr2: ID #var
      | INT #int
@@ -54,13 +72,47 @@ expr2: ID #var
      | TOREAL expr2 #toreal
      | '(' expr0 ')' #par
      | STRING #string
-   ;
+     ;
 
-TOINT:  '(int)'
-    ;
+condition: expr0 EQUAL expr0 #equalCondition
+         | expr0 NOT_EQUAL expr0 #notEqualCondition
+         | expr0 LESSER_THAN expr0 #lessThanCondition
+         | expr0 GREATER_THAN expr0 #greaterThanCondition
+         | expr0 LESSER_OR_EQUAL_THAN expr0 #lessOrEqualCondition
+         | expr0 GREATER_OR_EQUAL_THAN expr0 #greaterOrEqualCondition
+         ;
 
-TOREAL: '(real)'
-    ;
+CALL: 'call';
+
+WHILE: 'while';
+
+RET: 'return';
+
+DEFINE: 'def';
+
+END: 'end';
+
+THEN: 'then';
+
+ENDIF: 'endif';
+
+EQUAL: '==';
+
+NOT_EQUAL: '!=';
+
+LESSER_THAN: '<';
+
+GREATER_THAN: '>';
+
+LESSER_OR_EQUAL_THAN: '<=';
+
+GREATER_OR_EQUAL_THAN: '>=';
+
+IF: 'if';
+
+TOINT:  '(int)';
+
+TOREAL: '(real)';
 
 ADD: '+';
 

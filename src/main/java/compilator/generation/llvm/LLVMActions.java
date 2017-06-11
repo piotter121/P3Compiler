@@ -7,101 +7,145 @@ import p3lang.P3langParser;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Stack;
-
-/**
- * Created by piotr on 08.05.17.
- */
-enum VarType {
-    INT, REAL, STRING, UNKNOWN
-}
-
-class Value {
-    String value;
-    VarType type;
-
-    Value(String value, VarType type) {
-        this.value = value;
-        this.type = type;
-    }
-}
+import java.util.*;
 
 public class LLVMActions extends P3langBaseListener {
 
     private final String outputFileName;
     private final LLVMGenerator generator = new LLVMGenerator();
-    private Map<String, VarType> variables = new HashMap<>();
-    private Map<String, Integer> varCounters = new HashMap<>();
-    private Stack<Value> stack = new Stack<>();
+
+    private Map<String, VarType> globalVariables = new HashMap<>();
+    private Map<String, VarType> localVariables = new HashMap<>();
+
+    private Set<String> functions = new HashSet<>();
+
+    private Stack<Value> values = new Stack<>();
+    private Stack<String> evaluatedConditions = new Stack<>();
+    private boolean global;
 
     public LLVMActions(String outputFileName) {
         this.outputFileName = outputFileName;
     }
 
     @Override
-    public void exitAssignStatement(P3langParser.AssignStatementContext ctx) {
-        String ID = ctx.ID().getText();
-        Value v = stack.pop();
-        variables.put(ID, v.type);
-        int varAssignCount = varCounters.getOrDefault(ID, -1);
-        varAssignCount++;
-        String newID = ID + varAssignCount;
-        switch (v.type) {
-            case INT:
-                generator.declareI32(newID);
-                generator.assignI32(newID, v.value);
-                break;
-            case REAL:
-                generator.declareDouble(newID);
-                generator.assignDouble(newID, v.value);
-                break;
-            case STRING:
-                generator.declareString(newID);
-                generator.assignString(newID, v.value);
-                break;
-            case UNKNOWN:
-                throw new RuntimeException(String.format("Linia %d: Nieznany typ wartości", ctx.getStart().getLine()));
-        }
-        varCounters.put(ID, varAssignCount);
+    public void enterProgram(P3langParser.ProgramContext ctx) {
+        setGlobalScope();
     }
 
     @Override
     public void exitProgram(P3langParser.ProgramContext ctx) {
+        generator.closeMain();
         String generatedProgram = generator.generate();
         String userDir = System.getProperty("user.dir");
         try (FileWriter writer = new FileWriter(userDir + File.separator + outputFileName)) {
             writer.write(generatedProgram);
             writer.flush();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void enterFunctionDefinition(P3langParser.FunctionDefinitionContext ctx) {
+        String id = ctx.ID().getText();
+        if (functions.contains(id)) {
+            throw new RuntimeException(
+              String.format("Linia %d: Funkcja %s jest już zadeklarowana", ctx.getStart().getLine(), id)
+            );
+        }
+        setNonGlobalScope();
+        functions.add(id);
+        generator.startFunction(id);
+    }
+
+    @Override
+    public void exitFunctionDefinition(P3langParser.FunctionDefinitionContext ctx) {
+        setGlobalScope();
+        generator.endFunction();
+    }
+
+    private void setNonGlobalScope() {
+        global = false;
+        localVariables.clear();
+    }
+
+    private void setGlobalScope() {
+        global = true;
+        localVariables.clear();
+    }
+
+    @Override
+    public void exitFunctionCallStatement(P3langParser.FunctionCallStatementContext ctx) {
+        String id = ctx.ID().getText();
+        if (functions.contains(id)) {
+            generator.callFunction(id);
+        } else {
+            throw new IllegalArgumentException(
+                    String.format("Linia %d: Nie znaleziono funkcji %s", ctx.getStart().getLine(), id));
+        }
+    }
+
+    @Override
+    public void exitAssignStatement(P3langParser.AssignStatementContext ctx) {
+        String ID = ctx.ID().getText();
+        Value v = values.pop();
+        if (v.type == VarType.UNKNOWN) {
+            throw new RuntimeException(String.format("Linia %d: Nieznany typ wartości", ctx.getStart().getLine()));
+        }
+        if (getScopeVariables().getOrDefault(ID, VarType.UNKNOWN).equals(VarType.UNKNOWN)) {
+            declareNewVariable(ID, v);
+        } else if (getScopeVariables().getOrDefault(ID, VarType.UNKNOWN).equals(v.type)) {
+            assign(ID, v);
+        } else {
+            throw new RuntimeException(
+                    String.format("Linia %d: Niezgodna wartość z typem zmiennej!", ctx.getStart().getLine()));
+        }
+    }
+
+
+    private void assign(String id, Value v) {
+        switch (v.type) {
+            case INT:
+                generator.assignI32(getVariableScope(id), id, v.value);
+                break;
+            case REAL:
+                generator.assignDouble(getVariableScope(id), id, v.value);
+                break;
+            case STRING:
+                generator.assignString(getVariableScope(id), id, v.value);
+                break;
+        }
+    }
+
+    private void declareNewVariable(String id, Value v) {
+        getScopeVariables().put(id, v.type);
+        generator.declare(getActualScope(), id, v.type);
+        assign(id, v);
+    }
+
+    private Map<String, VarType> getScopeVariables() {
+        return global ? globalVariables : localVariables;
+    }
+
+    private VarType getVariableType(String varName) {
+        Map<String, VarType> variables;
+        if (global) {
+            variables = getScopeVariables();
+        } else {
+            variables = new HashMap<>(globalVariables);
+            variables.putAll(localVariables);
+        }
+        return variables.getOrDefault(varName, VarType.UNKNOWN);
     }
 
     @Override
     public void exitPrintStatement(P3langParser.PrintStatementContext ctx) {
         String ID = ctx.ID().getText();
-        VarType type = variables.getOrDefault(ID, VarType.UNKNOWN);
-        int c = varCounters.getOrDefault(ID, 0);
-        String nid = ID + c;
-        if (type != null) {
-            switch (type) {
-                case INT:
-                    generator.printfI32(nid);
-                    break;
-                case REAL:
-                    generator.printfDouble(nid);
-                    break;
-                case STRING:
-                    generator.printString(nid);
-                    break;
-                case UNKNOWN:
-                    throw new RuntimeException(
-                            String.format("Linia %d: Nieznany typ zmiennej %s", ctx.getStart().getLine(), ID));
-            }
-        } else {
+        VarType type = getVariableType(ID);
+        if (type == VarType.UNKNOWN) {
             throw new RuntimeException(String.format("Linia %d: Nieznana zmienna %s", ctx.getStart().getLine(), ID));
+        } else {
+            generator.printf(getVariableScope(ID), ID, type);
         }
     }
 
@@ -109,7 +153,7 @@ public class LLVMActions extends P3langBaseListener {
     public void exitReadStatement(P3langParser.ReadStatementContext ctx) {
         String ID = ctx.ID().getText();
 
-        VarType varType = variables.get(ID);
+        VarType varType = getVariableType(ID);
         switch (varType) {
             case INT:
                 generator.scanfI32(ID);
@@ -149,14 +193,14 @@ public class LLVMActions extends P3langBaseListener {
     }
 
     private void arithmeticOperation(ParserRuleContext ctx, Operation intOp, Operation doubleOp, String msg) {
-        Value v1 = stack.pop();
-        Value v2 = stack.pop();
+        Value v1 = values.pop();
+        Value v2 = values.pop();
         if (v1.type == VarType.INT && v2.type == VarType.INT) {
             intOp.doOperation(v1.value, v2.value);
-            stack.push(new Value("%" + (generator.reg - 1), VarType.INT));
+            values.push(new Value("%" + (generator.reg - 1), VarType.INT));
         } else if (v1.type == VarType.REAL && v2.type == VarType.REAL) {
             doubleOp.doOperation(v1.value, v2.value);
-            stack.push(new Value("%" + (generator.reg - 1), VarType.REAL));
+            values.push(new Value("%" + (generator.reg - 1), VarType.REAL));
         } else {
             throw new IllegalArgumentException(
                     String.format(msg, ctx.getStart().getLine()));
@@ -164,46 +208,126 @@ public class LLVMActions extends P3langBaseListener {
     }
 
     @Override
+    public void exitEqualCondition(P3langParser.EqualConditionContext ctx) {
+        doComparison(ctx, ConditionalOperand.EQUAL);
+    }
+
+    @Override
+    public void exitNotEqualCondition(P3langParser.NotEqualConditionContext ctx) {
+        doComparison(ctx, ConditionalOperand.NOT_EQUAL);
+    }
+
+    @Override
+    public void exitLessThanCondition(P3langParser.LessThanConditionContext ctx) {
+        doComparison(ctx, ConditionalOperand.LESS_THAN);
+    }
+
+    @Override
+    public void exitGreaterThanCondition(P3langParser.GreaterThanConditionContext ctx) {
+        doComparison(ctx, ConditionalOperand.GREATER_THAN);
+    }
+
+    @Override
+    public void exitLessOrEqualCondition(P3langParser.LessOrEqualConditionContext ctx) {
+        doComparison(ctx, ConditionalOperand.LESS_OR_EQUAL);
+    }
+
+    @Override
+    public void exitGreaterOrEqualCondition(P3langParser.GreaterOrEqualConditionContext ctx) {
+        doComparison(ctx, ConditionalOperand.GREATER_OR_EQUAL);
+    }
+
+    private void doComparison(ParserRuleContext ctx, ConditionalOperand operand) {
+        Value v2 = values.pop();
+        Value v1 = values.pop();
+        if (v1.type == v2.type) {
+            int reg = generator.icmp(operand, v1.type, v1.value, v2.value);
+            evaluatedConditions.push("%" + reg);
+        } else {
+            throw new RuntimeException(String.format("Linia %d: Niezgodność porównywanych typów!", ctx.getStart().getLine()));
+        }
+    }
+
+    @Override
+    public void enterIfBlock(P3langParser.IfBlockContext ctx) {
+        generator.beginIf(evaluatedConditions.pop());
+    }
+
+    @Override
+    public void exitIfBlock(P3langParser.IfBlockContext ctx) {
+        generator.endIf();
+    }
+
+    @Override
+    public void enterLoopStatement(P3langParser.LoopStatementContext ctx) {
+        generator.loopHead();
+    }
+
+    @Override
+    public void enterLoopBlock(P3langParser.LoopBlockContext ctx) {
+        generator.beginLoop(evaluatedConditions.pop());
+    }
+
+    @Override
+    public void exitLoopBlock(P3langParser.LoopBlockContext ctx) {
+        generator.endLoop();
+    }
+
+    @Override
     public void exitVar(P3langParser.VarContext ctx) {
         String ID = ctx.ID().getText();
-        VarType varType = variables.getOrDefault(ID, VarType.UNKNOWN);
+        VarType varType = getVariableType(ID);
         if (varType == VarType.UNKNOWN) {
             throw new IllegalStateException(
                     String.format("Linia %d: nie znaleziono zmiennej o nazwie %s", ctx.getStart().getLine(), ID));
+        } else {
+            int reg = generator.load(varType, getVariableScope(ID), ID);
+            values.push(new Value("%" + reg, varType));
         }
-        int c = varCounters.getOrDefault(ID, 0);
-        stack.push(new Value("%" + ID + c, varType));
+    }
+
+    private Scope getVariableScope(String id) {
+        if (globalVariables.containsKey(id)) {
+            return Scope.GLOBAL;
+        } else if (localVariables.containsKey(id)) {
+            return Scope.LOCAL;
+        }
+        return null;
+    }
+
+    private Scope getActualScope() {
+        return global ? Scope.GLOBAL : Scope.LOCAL;
     }
 
     @Override
     public void exitInt(P3langParser.IntContext ctx) {
-        stack.push(new Value(ctx.INT().getText(), VarType.INT));
+        values.push(new Value(ctx.INT().getText(), VarType.INT));
     }
 
     @Override
     public void exitReal(P3langParser.RealContext ctx) {
-        stack.push(new Value(ctx.REAL().getText(), VarType.REAL));
+        values.push(new Value(ctx.REAL().getText(), VarType.REAL));
     }
 
     @Override
     public void exitToint(P3langParser.TointContext ctx) {
-        Value v = stack.pop();
+        Value v = values.pop();
         generator.fptosi(v.value);
-        stack.push(new Value("%" + (generator.reg - 1), VarType.INT));
+        values.push(new Value("%" + (generator.reg - 1), VarType.INT));
     }
 
     @Override
     public void exitToreal(P3langParser.TorealContext ctx) {
-        Value v = stack.pop();
+        Value v = values.pop();
         generator.sitofp(v.value);
-        stack.push(new Value("%" + (generator.reg - 1), VarType.REAL));
+        values.push(new Value("%" + (generator.reg - 1), VarType.REAL));
     }
 
     @Override
     public void exitString(P3langParser.StringContext ctx) {
         String tmp = ctx.STRING().getText();
         String text = tmp.substring(1, tmp.length() - 1);
-        stack.push(new Value(text, VarType.STRING));
+        values.push(new Value(text, VarType.STRING));
     }
 
     @FunctionalInterface

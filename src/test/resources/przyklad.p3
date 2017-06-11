@@ -1,3 +1,2 @@
-x = "ala ma kota"
+x = 2.0/1.0
 print x
-insert "dolaczony.p3"

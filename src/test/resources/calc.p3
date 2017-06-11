@@ -1,0 +1,22 @@
+# dodawanie liczb
+suma = 120 + 25
+print suma
+
+# odejmowanie liczba
+sub = 150 - 77
+print sub
+
+# mnożenie liczb zmienno przecinkowych
+mult = 1.772 * 230.98
+print mult
+
+# wczytywanie danych
+a = 0.0
+s = "Podaj a"
+print s
+read a
+
+div = a / 23.0
+s = "a / 23.0 ="
+print s
+print div
