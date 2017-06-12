@@ -8,6 +8,8 @@ mvn clean generate-sources package
 Kompilacja pliku źródłowego:
 <br/>
 <code>
-    make
+    ./compile.sh [nazwa_pliku]
 </code>
+<br/>
+Plik z kompilowanym kodem źródłowym powinien znajdować się katalogu <i>src/test/resources</i>.
 </p>
