@@ -1,6 +1,6 @@
 x = 12
 
-def foo :
+def foo:
     xx = x * x
     print xx
 end

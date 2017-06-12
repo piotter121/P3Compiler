@@ -1,8 +1,8 @@
 package compilator.generation.llvm;
 
 class Value {
-    String value;
-    VarType type;
+    final String value;
+    final VarType type;
 
     Value(String value, VarType type) {
         this.value = value;

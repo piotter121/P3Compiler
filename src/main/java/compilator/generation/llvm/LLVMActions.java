@@ -14,13 +14,13 @@ public class LLVMActions extends P3langBaseListener {
     private final String outputFileName;
     private final LLVMGenerator generator = new LLVMGenerator();
 
-    private Map<String, VarType> globalVariables = new HashMap<>();
-    private Map<String, VarType> localVariables = new HashMap<>();
+    private final Map<String, VarType> globalVariables = new HashMap<>();
+    private final Map<String, VarType> localVariables = new HashMap<>();
 
-    private Set<String> functions = new HashSet<>();
+    private final Set<String> functions = new HashSet<>();
 
-    private Stack<Value> values = new Stack<>();
-    private Stack<String> evaluatedConditions = new Stack<>();
+    private final Stack<Value> values = new Stack<>();
+    private final Stack<String> evaluatedConditions = new Stack<>();
     private boolean global;
 
     public LLVMActions(String outputFileName) {
@@ -50,7 +50,7 @@ public class LLVMActions extends P3langBaseListener {
         String id = ctx.ID().getText();
         if (functions.contains(id)) {
             throw new RuntimeException(
-              String.format("Linia %d: Funkcja %s jest już zadeklarowana", ctx.getStart().getLine(), id)
+                    String.format("Linia %d: Funkcja %s jest już zadeklarowana", ctx.getStart().getLine(), id)
             );
         }
         setNonGlobalScope();
@@ -93,7 +93,8 @@ public class LLVMActions extends P3langBaseListener {
             throw new RuntimeException(String.format("Linia %d: Nieznany typ wartości", ctx.getStart().getLine()));
         }
         if (getScopeVariables().getOrDefault(ID, VarType.UNKNOWN).equals(VarType.UNKNOWN)) {
-            declareNewVariable(ID, v);
+            declareNewVariable(ID, v.type);
+            assign(ID, v);
         } else if (getScopeVariables().getOrDefault(ID, VarType.UNKNOWN).equals(v.type)) {
             assign(ID, v);
         } else {
@@ -117,10 +118,9 @@ public class LLVMActions extends P3langBaseListener {
         }
     }
 
-    private void declareNewVariable(String id, Value v) {
-        getScopeVariables().put(id, v.type);
-        generator.declare(getActualScope(), id, v.type);
-        assign(id, v);
+    private void declareNewVariable(String id, VarType type) {
+        getScopeVariables().put(id, type);
+        generator.declare(getActualScope(), id, type);
     }
 
     private Map<String, VarType> getScopeVariables() {
@@ -154,14 +154,19 @@ public class LLVMActions extends P3langBaseListener {
         String ID = ctx.ID().getText();
 
         VarType varType = getVariableType(ID);
+        Scope scope = getVariableScope(ID);
         switch (varType) {
             case INT:
-                generator.scanfI32(ID);
+                generator.scanfI32(scope, ID);
                 break;
             case REAL:
-                generator.scanfDouble(ID);
+                generator.scanfDouble(scope, ID);
                 break;
-            default:
+            case UNKNOWN:
+                declareNewVariable(ID, VarType.REAL);
+                generator.scanfDouble(getActualScope(), ID);
+                break;
+            case STRING:
                 throw new UnsupportedOperationException(
                         String.format("Linia %d: nie można wczytywać innych zmiennych niż typu int i real",
                                 ctx.getStart().getLine()));
@@ -240,11 +245,13 @@ public class LLVMActions extends P3langBaseListener {
     private void doComparison(ParserRuleContext ctx, ConditionalOperand operand) {
         Value v2 = values.pop();
         Value v1 = values.pop();
-        if (v1.type == v2.type) {
+        if (v1.type == VarType.INT && v2.type == VarType.INT) {
             int reg = generator.icmp(operand, v1.type, v1.value, v2.value);
             evaluatedConditions.push("%" + reg);
         } else {
-            throw new RuntimeException(String.format("Linia %d: Niezgodność porównywanych typów!", ctx.getStart().getLine()));
+            throw new RuntimeException(
+                    String.format("Linia %d: Porównywane zmienne muszą być zmiennymi typu INT!",
+                            ctx.getStart().getLine()));
         }
     }
 

@@ -7,11 +7,12 @@ class LLVMGenerator {
     int reg = 1;
     private int globalReqBackup = 1;
     private int ifNo = 0;
+    private int strReg = 1;
     private String headerText = "";
     private String globals = "";
     private String mainText = "";
     private String buffer = "";
-    private Stack<Integer> brstack = new Stack<>();
+    private final Stack<Integer> braceStack = new Stack<>();
 
     int icmp(ConditionalOperand operand, VarType type, String id1, String id2) {
         buffer += "%" + reg + " = icmp " + operand + " " + type + " " + id1 + ", " + id2 + "\n";
@@ -19,8 +20,7 @@ class LLVMGenerator {
     }
 
     void printf(Scope prefix, String id, VarType type) {
-        buffer += "%" + reg + " = load " + type + "* " + prefix + id + "\n";
-        reg++;
+        load(type, prefix, id);
         buffer += "%" + reg + " = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([4 x i8]* " + type.getPrintfFormat() + ", i32 0, i32 0), " + type + " %" + (reg - 1) + ")\n";
         reg++;
     }
@@ -41,8 +41,9 @@ class LLVMGenerator {
     }
 
     void assignString(Scope scope, String id, String value) {
-        headerText += "@str" + id + " = constant[" + (value.length() + 1) + " x i8] c\"" + value + "\\00\"\n";
-        buffer += "store i8* getelementptr inbounds ([" + (value.length() + 1) + " x i8]* @str" + id + ", i32 0, i32 0), i8** " + scope + id + "\n";
+        headerText += "@str" + strReg + " = constant[" + (value.length() + 1) + " x i8] c\"" + value + "\\00\"\n";
+        buffer += "store i8* getelementptr inbounds ([" + (value.length() + 1) + " x i8]* @str" + strReg + ", i32 0, i32 0), i8** " + scope + id + "\n";
+        strReg++;
     }
 
     int load(VarType type, Scope prefix, String id) {
@@ -118,13 +119,13 @@ class LLVMGenerator {
                 "}\n";
     }
 
-    void scanfI32(String id) {
-        buffer += "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @strsi, i32 0, i32 0), i32* %" + id + ")\n";
+    void scanfI32(Scope scope, String id) {
+        buffer += "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([3 x i8]* @strsi, i32 0, i32 0), i32* " + scope + id + ")\n";
         reg++;
     }
 
-    void scanfDouble(String id) {
-        buffer += "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([4 x i8]* @strsd, i32 0, i32 0), double* %" + id + ")\n";
+    void scanfDouble(Scope scope, String id) {
+        buffer += "%" + reg + " = call i32 (i8*, ...)* @scanf(i8* getelementptr inbounds ([4 x i8]* @strsd, i32 0, i32 0), double* " + scope + id + ")\n";
         reg++;
     }
 
@@ -136,18 +137,18 @@ class LLVMGenerator {
         ifNo++;
         buffer += "br i1 " + cond + ", label %ok" + ifNo + ", label %fail" + ifNo + "\n";
         buffer += "ok" + ifNo + ": \n";
-        brstack.push(ifNo);
+        braceStack.push(ifNo);
     }
 
     void endIf() {
-        int brNo = brstack.pop();
+        int brNo = braceStack.pop();
         buffer += "br label %fail" + brNo + "\n";
         buffer += "fail" + brNo + ":\n";
     }
 
     void loopHead() {
         ifNo++;
-        brstack.push(ifNo);
+        braceStack.push(ifNo);
         buffer += "br label %loop" + ifNo + "Head\n";
         buffer += "loop" + ifNo + "Head:\n";
     }
@@ -158,7 +159,7 @@ class LLVMGenerator {
     }
 
     void endLoop() {
-        int brNo = brstack.pop();
+        int brNo = braceStack.pop();
         buffer += "br label %loop" + brNo + "Head\n";
         buffer += "loop" + brNo + "End:\n";
     }

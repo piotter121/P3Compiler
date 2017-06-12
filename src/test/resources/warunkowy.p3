@@ -1,5 +1,5 @@
-x = 3
-if x == 3 then
+x = 2
+if x <= 3 then
     s = "Jestem w warunku"
     print s
 endif
